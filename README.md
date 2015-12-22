@@ -1,3 +1,4 @@
-# dna-secondary-struct-chrom-lands
+# DNA secondary structures prevalently mark the human regulatory chromatin landscape
 
-This is a stub for the Methods section of a manuscript in preparation.
+Repository for the Method section of data analysis. See [Methods](Methods.md).
+

@@ -6,6 +6,9 @@ Input and output file names are often replaced by placeholder variables (strings
 
 ## Software tools and public data files
 
+Data processing was performed in Linux environment with GNU coreutils tools.
+The following software and data files are required for the analysis described here:
+
 * [cutadapt](http://cutadapt.readthedocs.org/en/stable/guide.html) version 1.8
 
 * [bwa](https://github.com/lh3/bwa) version 0.7
@@ -43,18 +46,17 @@ The intervals in this file were subtracted from the reference genome to obtain a
 
 ``` 
 wget http://hgdownload.cse.ucsc.edu/goldenpath/hg19/encodeDCC/wgEncodeMapability/wgEncodeDukeMapabilityRegionsExcludable.bed.gz
-mysql --user=genome --host=genome-mysql.cse.ucsc.edu -N -A -e "select chrom, size from hg19.chromInfo" \
+mysql --user=genome --host=genome-mysql.cse.ucsc.edu -N -A -e \
+    "select chrom, size from hg19.chromInfo" \
 | awk -v OFS="\t" '{print $1, 0, $2}' \
 | subtractBed -a - -b wgEncodeDukeMapabilityRegionsExcludable.bed.gz \
 | sort -k1,1 -k2,2n > hg19.wgEncodeDukeMapabilityRegionsExcludable.whitelist.bed
 ```
 
-Data processing was performed in Linux environment with GNU coreutils tools.
-
 ## Processing FAIRE-Seq data
 
 Raw fastq files were trimmed to remove adapter contamination and were aligned to the reference genome.
-Aligned files were filtered to remove secondary and not primary alignmets as well as reads with mapping quality below 10:
+Aligned files were filtered to remove secondary and not primary alignments as well as reads with mapping quality below 10:
 
 ```
 cutadapt -f fastq -e 0.1 -q 20 -O 3 -a CTGTCTCTTATACACATCT $fq > /dev/stdout 2> $bname.cutadapt.txt \
@@ -87,7 +89,7 @@ Peak files from individual chromosomes were then concateated.
 ## Processing ATAC-Seq data
 
 Raw reads were trimmed, aligned, filtered and duplicates marked using the same procedure as for FAIRE-Seq. 
-Prior to mapping of open chromatin, reads mapping to chrM were removed and technical replicates were merged in a single bam file.
+Prior to mapping of open chromatin, reads mapping to chrM were removed and technical replicates merged in a single bam file.
 
 Peaks of read enrichment were mapped using macs2 as follows:
 
@@ -103,25 +105,14 @@ of libraries. First, consensus peaks within entinostat and control libraries wer
 
 ```
 ## Consensus peaks in entinostat
-mergePeaks.sh ../macs/rhh_ATAC_entinostat_bio1_23102015_peaks.narrowPeak.gz \
-    ../macs/rhh_ATAC_entinostat_bio2_23102015_peaks.narrowPeak.gz | awk '$5 > 1' > entino.merge.narrowPeak
-
-#  14673 rhh_ATAC_entinostat_bio1_23102015_peaks.narrowPeak.gz
-#  41010 rhh_ATAC_entinostat_bio1_23102015_peaks.narrowPeak.gz,rhh_ATAC_entinostat_bio2_23102015_peaks.narrowPeak.gz
-#  17477 rhh_ATAC_entinostat_bio2_23102015_peaks.narrowPeak.gz
+mergePeaks.sh rhh_ATAC_entinostat_bio1_23102015_peaks.narrowPeak.gz \
+    rhh_ATAC_entinostat_bio2_23102015_peaks.narrowPeak.gz | awk '$5 > 1' > entino.merge.narrowPeak
 
 ## Consensus peaks control
-mergePeaks.sh ../../20150721_ATAC-Seq_hacat/rhh145-146_K3_K4_atac_hacat_peaks.narrowPeak \
-../../20150721_ATAC-Seq_hacat/rhh147-148_untreat_14102014_atac_hacat_peaks.narrowPeak \
-../../20150721_ATAC-Seq_hacat/rhh149-150_untreat_27052014_atact_hacat_peaks.narrowPeak | awk '$5 > 1' > ctrl.merge.narrowPeak
+mergePeaks.sh rhh145-146_K3_K4_atac_hacat_peaks.narrowPeak \
+    rhh147-148_untreat_14102014_atac_hacat_peaks.narrowPeak \
+    rhh149-150_untreat_27052014_atact_hacat_peaks.narrowPeak | awk '$5 > 1' > ctrl.merge.narrowPeak
 
-#  10199 rhh145-146_K3_K4_atac_hacat_peaks.narrowPeak
-#  17364 rhh145-146_K3_K4_atac_hacat_peaks.narrowPeak,rhh147-148_untreat_14102014_atac_hacat_peaks.narrowPeak
-#  35212 rhh145-146_K3_K4_atac_hacat_peaks.narrowPeak,rhh147-148_untreat_14102014_atac_hacat_peaks.narrowPeak,rhh149-150_untreat_27052014_atact_hacat_peaks.narrowPeak
-#   1169 rhh145-146_K3_K4_atac_hacat_peaks.narrowPeak,rhh149-150_untreat_27052014_atact_hacat_peaks.narrowPeak
-#  56749 rhh147-148_untreat_14102014_atac_hacat_peaks.narrowPeak
-#   5551 rhh147-148_untreat_14102014_atac_hacat_peaks.narrowPeak,rhh149-150_untreat_27052014_atact_hacat_peaks.narrowPeak
-#   8225 rhh149-150_untreat_27052014_atact_hacat_peaks.narrowPeak
 ```
 
 The union of the two consensus peak sets was tested for differential chromatin state:
@@ -129,10 +120,6 @@ The union of the two consensus peak sets was tested for differential chromatin s
 ```
 mergePeaks.sh ctrl.merge.narrowPeak entino.merge.narrowPeak \
 | sortBedAsBam.py -i - -b /nas/sblab_data1/berald01/repository/bam_clean/rhh_ATAC_entinostat_bio1_23102015.bam > union.merge.bed
-
-#  27065 ctrl.merge.narrowPeak
-#  32118 ctrl.merge.narrowPeak,entino.merge.narrowPeak
-#   7405 entino.merge.narrowPeak
 
 # Count reads in peaks
 for bam in rhh_ATAC_entinostat_bio1_23102015.bam \
@@ -149,6 +136,8 @@ tableCat.py -i rhh*.union.bed -r '.union.bed' >> union.merge.counts.bed
 rm rhh*union.bed
 rm union.merge.bed
 ```
+
+`genome.txt` is tab delimited file giving the of chromosomes in the input files. See the documentation of `coverageBed` for further details.
 
 Read counts were adjusted by libraries size defined as number of reads mapped in all chromosomes but excluding chrM:
 
@@ -224,13 +213,13 @@ First, consensus peak sets were produced for the two cell lines, then a union pe
 
 ```
 ## Consensus peaks HEK
-mergePeaks.sh ../20150331_ATAC-Seq_primaries/macs/rhh_HEKnp_ATAC_24022015_peaks.narrowPeak.gz \
-    ../20150331_ATAC-Seq_primaries/macs/rhh_HEKnp_ATAC_27032015_peaks.narrowPeak.gz | awk '$5 > 1' > hek_atac.merge.narrowPeak
+mergePeaks.sh rhh_HEKnp_ATAC_24022015_peaks.narrowPeak.gz \
+    rhh_HEKnp_ATAC_27032015_peaks.narrowPeak.gz | awk '$5 > 1' > hek_atac.merge.narrowPeak
 
 ## Consensus peaks HACAT
-mergePeaks.sh ../20150721_ATAC-Seq_hacat/rhh145-146_K3_K4_atac_hacat_peaks.narrowPeak \
-    ../20150721_ATAC-Seq_hacat/rhh147-148_untreat_14102014_atac_hacat_peaks.narrowPeak \
-    ../20150721_ATAC-Seq_hacat/rhh149-150_untreat_27052014_atact_hacat_peaks.narrowPeak | awk '$5 > 1' > hacat_atac.merge.narrowPeak
+mergePeaks.sh rhh145-146_K3_K4_atac_hacat_peaks.narrowPeak \
+    rhh147-148_untreat_14102014_atac_hacat_peaks.narrowPeak \
+    rhh149-150_untreat_27052014_atact_hacat_peaks.narrowPeak | awk '$5 > 1' > hacat_atac.merge.narrowPeak
 
 ## Union set
 mergePeaks.sh hacat_atac.merge.narrowPeak  hek_atac.merge.narrowPeak \
@@ -339,14 +328,12 @@ Differences in BG4 binding between entinostat treated and control cells have bee
 G4-ChIP libraries. The union set of intervals and read count in each interval has been produced as follows:
 
 ```
-mergePeaks.sh ../20150812_bg4_chip/macs/rhh_25cyc_BG4_12082015_peaks.narrowPeak \
-    ../20151006_BG4_ChIP_entinostat/macs/rhh175_ChIPwthacat_704_502_entst_26082015_peaks.narrowPeak \
-    ../20151006_BG4_ChIP_entinostat/macs/rhh_ChIP_entst_17082015_peaks.narrowPeak \
-    ../20151006_BG4_ChIP_entinostat/macs/rhh_ChIP_entst_26082015_peaks.narrowPeak \
-| sortBedAsBam.py -i - -b /nas/sblab_data1/berald01/repository/bam_clean/rhh_ChIP_entst_17082015.bam > union.bed
+mergePeaks.sh rhh_25cyc_BG4_12082015_peaks.narrowPeak \
+    rhh175_ChIPwthacat_704_502_entst_26082015_peaks.narrowPeak \
+    rhh_ChIP_entst_17082015_peaks.narrowPeak \
+    rhh_ChIP_entst_26082015_peaks.narrowPeak \
+| sortBedAsBam.py -i - -b rhh_ChIP_entst_17082015.bam > union.bed
 
-
-bamdir=/nas/sblab_data1/berald01/repository/bam_clean
 for bam in rhh_25cyc_BG4_12082015.bam \
            rhh175_ChIPwthacat_704_502_entst_26082015.bam \
            rhh_ChIP_entst_17082015.bam \
@@ -418,10 +405,10 @@ Union set of testable site was produced merging the four libraries from HaCaT an
 
 ```
 mergePeaks.sh \
-    ../20150812_bg4_chip/macs/rhh_25cyc_BG4_12082015_peaks.narrowPeak \
-    ../20151006_BG4_ChIP_entinostat/macs/rhh175_ChIPwthacat_704_502_entst_26082015_peaks.narrowPeak \
-    ../20151103_slx-10225_10223/HEKnp_Lonza_1472015_BG4.1e4_peaks.narrowPeak \
-    ../20151103_slx-10225_10223/HEKnp_Lonza_1572015_BG4.1e4_peaks.narrowPeak \
+    rhh_25cyc_BG4_12082015_peaks.narrowPeak \
+    rhh175_ChIPwthacat_704_502_entst_26082015_peaks.narrowPeak \
+    HEKnp_Lonza_1472015_BG4.1e4_peaks.narrowPeak \
+    HEKnp_Lonza_1572015_BG4.1e4_peaks.narrowPeak \
 | sortBedAsBam.py -i - -b rhh_25cyc_BG4_12082015.bam > union_bg4.merge.bed
 
 # Count reads in union peak set
@@ -478,7 +465,8 @@ detable<- merge(detable, unique(cnt[, list(chrom, start, end, locus)]), by= 'loc
 pal<- colorRampPalette(c("white", "lightblue", "yellow", "red"), space = "Lab")
 pdf('maplot.BG4-hek_vs_hacat.pdf', w= 12/2.54, h= 12/2.54, pointsize= 10)
 par(las= 1, mgp= c(1.75, 0.5, 0), bty= 'l', mar= c(3, 3, 3, 0.5))
-smoothScatter(x= detable$logCPM, y= detable$logFC, xlab= 'logCPM', ylab= 'logFC', main= "BG4 differential binding [HEK - HACAT]", colramp= pal, col= 'blue')
+smoothScatter(x= detable$logCPM, y= detable$logFC, xlab= 'logCPM', ylab= 'logFC',
+    main= "BG4 differential binding [HEK - HACAT]", colramp= pal, col= 'blue')
 lines(loess.smooth(x= detable$logCPM, y= detable$logFC, span= 0.1), lwd= 2, col= 'grey60')
 abline(h= 0, col= 'grey30')
 points(x= detable$logCPM, y= detable$logFC, col= ifelse(detable$FDR < 0.05, '#FF000080', 'transparent'), cex= 0.5, pch= '.')
@@ -515,7 +503,8 @@ library(reshape2)
 cnt<- read.table('all.htseq', row.names= 1, header= TRUE)
 
 ## Entinostat treated libraries are Entinostat_[1-4], controls are HaCaT_[1-4]
-cnt<- cnt[!rownames(cnt) %in% c("no_feature", "ambiguous", "too_low_aQual", "not_aligned", "alignment_not_unique"), c("Entinostat_1", "Entinostat_2", "Entinostat_3", "Entinostat_4", "HaCaT_1", "HaCaT_2", "HaCaT_3", "HaCaT_4")]
+cnt<- cnt[!rownames(cnt) %in% c("no_feature", "ambiguous", "too_low_aQual", "not_aligned", "alignment_not_unique"),
+    c("Entinostat_1", "Entinostat_2", "Entinostat_3", "Entinostat_4", "HaCaT_1", "HaCaT_2", "HaCaT_3", "HaCaT_4")]
 keep<- rowSums(cpm(cnt) > 1) >= 2
 cnt<- cnt[keep, ]
 group <- factor(c('ent', 'ent', 'ent', 'ent', 'ctrl', 'ctrl', 'ctrl', 'ctrl'))
@@ -536,7 +525,8 @@ detable<- data.table(detable)
 pal<- colorRampPalette("transparent", space = "Lab") # Do not colour NS genes
 pdf('maplot.entinostat.rnaseq.pdf', w= 12/2.54, h= 12/2.54, pointsize= 10)
 par(las= 1, mgp= c(1.75, 0.5, 0), bty= 'l', mar= c(3, 3, 3, 0.5))
-smoothScatter(x= detable$logCPM, y= detable$logFC, xlab= 'logCPM', ylab= 'logFC', main= "Differential gene [entinostat - ctrl]", colramp= pal, col= 'blue', nrpoints= 0)
+smoothScatter(x= detable$logCPM, y= detable$logFC, xlab= 'logCPM', ylab= 'logFC',
+    main= "Differential gene [entinostat - ctrl]", colramp= pal, col= 'blue', nrpoints= 0)
 lines(loess.smooth(x= detable$logCPM, y= detable$logFC, span= 0.1), lwd= 2, col= 'grey60')
 abline(h= c(-2, 0, 2), col= 'grey30')
 points(x= detable$logCPM, y= detable$logFC, col= ifelse(detable$FDR < 0.05, '#FF000080', 'transparent'), cex= 0.5, pch= '.') # Mark DE genes
@@ -593,7 +583,8 @@ detable<- data.table(detable)
 pal<- colorRampPalette("transparent", space = "Lab")
 pdf('maplot.hek_vs_hacat.rnaseq.pdf', w= 12/2.54, h= 12/2.54, pointsize= 10)
 par(las= 1, mgp= c(1.75, 0.5, 0), bty= 'l', mar= c(3, 3, 3, 0.5))
-smoothScatter(x= detable$logCPM, y= detable$logFC, xlab= 'logCPM', ylab= 'logFC', main= "Differential gene [HEK - HACAT]", colramp= pal, col= 'blue', nrpoints= 0)
+smoothScatter(x= detable$logCPM, y= detable$logFC, xlab= 'logCPM', ylab= 'logFC',
+    main= "Differential gene [HEK - HACAT]", colramp= pal, col= 'blue', nrpoints= 0)
 lines(loess.smooth(x= detable$logCPM, y= detable$logFC, span= 0.1), lwd= 2, col= 'grey60')
 abline(h= c(-2, 0, 2), col= 'grey30')
 points(x= detable$logCPM, y= detable$logFC, col= ifelse(detable$FDR < 0.05, '#FF000080', 'transparent'), cex= 0.5, pch= '.')
@@ -603,6 +594,80 @@ grid(col= 'grey50')
 dev.off()
 
 write.table(detable, "expr_diff.hek_vs_hacat.rnaseq.txt", row.names= FALSE, col.names= TRUE, sep= '\t', quote= FALSE)
+```
+
+## Gene expression in relation to ATAC and G4-ChIP peaks in promoters
+
+Gene promoters were annotated with the presence ATAC-Seq and G4-ChIP peaks in order to assess the effect of ATAC-Seq and G4-ChIP
+peaks on gene expression.
+
+Promoters were defined as the regions spanning the transcription start sites by 1000 bp up- and down-stream. From the gene annotation
+file `genes.gtf`, promoters were extracted as follows:
+
+
+```
+# Check column 9 is always gene_id and column 11 transcript_id
+nrec=`wc -l genes.gtf | cut -d ' ' -f 1`
+ngene=`awk '$9 == "gene_id"' genes.gtf | wc -l | cut -d ' ' -f 1`
+ntx=`awk '$11 == "transcript_id"' genes.gtf | wc -l | cut -d ' ' -f 1`
+echo $nrec $ngene $ntx
+
+#  + Strand: Get start of first exons on each transcript
+awk -v OFS="\t" '$7 == "+" {print $1, $4, $5, $7, $10, $12}' genes.gtf \
+| sed 's/"//g' | sed 's/ //g' | sed 's/;//g' \
+| sort -k 6,6 -k2,2n \
+| groupBy -g 6 -c 1,2,5 -o first,first,first \
+| awk -v OFS="\t" '{print $2, $3-1000, $3+1000, $4, $1, "+"}' > tss.plus.bed
+
+# - strand: Get end of last exons on each transcript
+awk -v OFS="\t" '$7 == "-" {print $1, $4, $5, $7, $10, $12}' genes.gtf \
+| sed 's/"//g' | sed 's/ //g' | sed 's/;//g' \
+| sort -k 6,6 -k3,3nr \
+| groupBy -g 6 -c 1,3,5 -o first,first,first \
+| awk -v OFS="\t" '{print $2, $3-1000, $3+1000, $4, $1, "-"}' > tss.minus.bed
+
+# Merge promoters within genes
+cat tss.minus.bed tss.plus.bed \
+| cut -f1,2,3,4 \
+| sort \
+| uniq \
+| awk -v OFS="\t" '{print $1 "_" $4, $2, $3, $4}' \
+| sortBed \
+| mergeBed \
+| sed 's/_/\t/' \
+| awk -v OFS="\t" '{print $1, $3, $4, $2}' \
+| sortBed > hg19.gene_name.promoters.bed
+
+## Get only genes with one merged promoter
+R
+library(data.table)
+bed<- fread('hg19.gene_name.promoters.bed')
+setnames(bed, names(bed), c('chrom', 'start', 'end', 'gene_name'))
+cntgene<- bed[, .N, by= gene_name]
+bed<- bed[gene_name %in% cntgene[N == 1, gene_name] ]
+write.table(bed, 'hg19.gene_name.promoters.bed', sep= '\t', row.names= FALSE, col.names= FALSE, quote= FALSE)
+quit(save= 'no')
+##
+rm tss.minus.bed tss.plus.bed
+```
+
+The obtained promoters were then annotated with ATAC and G4-ChIP peaks and observed quadruplex sequences. 
+
+```
+## ATAC sites
+mergePeaks.sh \
+   rhh145-146_K3_K4_atac_hacat_peaks.narrowPeak \
+   rhh147-148_untreat_14102014_atac_hacat_peaks.narrowPeak \
+   rhh149-150_untreat_27052014_atact_hacat_peaks.narrowPeak \
+| awk '$5 >= 2' > atac_hacat.narrowPeak 
+
+annotateBed -counts -i hg19.gene_name.promoters.bed -files \
+    atac_hacat.narrowPeak \
+    ../OQs/Na_PDS_hits_intersect.bed.gz \
+    BG4_hacat.1rep.narrowPeak \
+    BG4_hacat.2rep.narrowPeak \
+| sortBed > hg19.promoters.ant.bed
+rm hg19.gene_name.promoters.bed
 ```
 
 ## Correlation in read density between replicates
@@ -632,7 +697,7 @@ for bam in  rhh175_ChIPwthacat_704_502_entst_26082015.bam \
             rhh_hek_09112014_FAIRE.bam \
             rhh_hek_18092014_FAIRE.bam
 do
-echo "coverageBed -g /data/sblab-data/berald01/projects/20130906_faire_seq_robert/20151116_promoters_bg4_dba/genome.txt -sorted \
+echo "coverageBed -g genome.txt -sorted \
     -a chr19.windows.bed -b $bamdir/$bam -counts > ${bam%%.bam}.cnt.bed" > ${bam%%.bam}.tmp.sh
 done
 ls *.tmp.sh | xargs -P 0 -n 1 bash && rm *tmp.sh
