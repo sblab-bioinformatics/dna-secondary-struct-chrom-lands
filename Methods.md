@@ -306,6 +306,7 @@ Prior to mapping of open chromatin technical replicates were merged in a single 
 Peaks were identified with macs2 with the appropriate input control for each pull-down library:
 
 ```
+## HACAT - Control
 macs2 callpeak --keep-dup all \
     -t $bamdir/rhh_25cyc_BG4_12082015.bam \
     -c $bamdir/rhh155_25cyc_input_703_503_12082015.bam -n rhh_25cyc_BG4_12082015
@@ -314,12 +315,23 @@ macs2 callpeak --keep-dup all \
     -t $bamdir/rhh175_ChIPwthacat_704_502_entst_26082015.bam \
     -c $bamdir/rhh178_inputwthacat_703_517_entst_26082015 .bam -n rhh175_ChIPwthacat_704_502_entst_26082015
 
-for bam in HEKnp_Lonza_1472015_BG4.md.bam HEKnp_Lonza_1572015_BG4.md.bam
-do
+## HACAT - Entinostat
+macs2 callpeak --keep-dup all \
+    -t $bamdir/rhh_ChIP_entst_17082015.bam \
+    -c $bamdir/rhh176_Input_705_503_entst_17082015.bam -n rhh_ChIP_entst_17082015
+
+macs2 callpeak --keep-dup all \
+    -t $bamdir/rhh_ChIP_entst_26082015.bam \
+    -c $bamdir/rhh177_Input_705_517_entst_26082015.bam -n rhh_ChIP_entst_26082015
+
+## NHEK
+macs2 callpeak --keep-dup all -p 0.0001     \
+    -t HEKnp_Lonza_1472015_BG4.md.bam \
+    -c merged_14_and_15072015_input_heknplonza.md.bam -n HEKnp_Lonza_1472015_BG4.1e4
+    
 macs2 callpeak --keep-dup all -p 0.0001 \
-    -t $bam \
-    -c merged_14_and_15072015_input_heknplonza.md.bam -n ${bam%.md.bam}.1e4
-done
+    -t HEKnp_Lonza_1572015_BG4.md.bam \
+    -c merged_14_and_15072015_input_heknplonza.md.bam -n HEKnp_Lonza_1572015_BG4.1e4
 ```
 
 ### Differential BG4 binding between entinostat and control cells
@@ -351,7 +363,7 @@ rm union.bed
 The resulting matrix of counts having G4-ChIP sites as rows and libraries as columns was analyzed for differential binding.
 Note that the number of reads in each alignment file was used as library size.
 
-```
+```R
 R
 library(data.table)
 library(edgeR)
