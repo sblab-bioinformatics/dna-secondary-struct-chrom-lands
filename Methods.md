@@ -3,7 +3,6 @@
 For ease of presentation, paths to programs and to data files are omitted in the following scripts.
 Input and output file names are often replaced by placeholder variables (strings starting with `$` _as per_ bash syntax).
 
-
 ## Software tools and public data files
 
 Data processing was performed in Linux environment with GNU coreutils tools.
@@ -23,8 +22,6 @@ The following software and data files are required for the analysis described he
 
 * Human reference genome version hg19 in fasta format, indexes for bwa and bowtie2, and gene annotation file (`genes.gtf`)
 were downloaded from [Illumina iGenomes](https://support.illumina.com/sequencing/sequencing_software/igenome.html)
-
-* [F-Seq](https://github.com/aboyle/F-seq) version 1.84
 
 * [macs2](https://github.com/taoliu/MACS/) version 2.1.0.20150731
 
@@ -53,10 +50,12 @@ mysql --user=genome --host=genome-mysql.cse.ucsc.edu -N -A -e \
 | sort -k1,1 -k2,2n > hg19.wgEncodeDukeMapabilityRegionsExcludable.whitelist.bed
 ```
 
-## Processing FAIRE-Seq data
+## Alignment and peak calling of FAIRE-Seq, ATAC-Seq, BG4-ChIP data
 
-Raw fastq files were trimmed to remove adapter contamination and were aligned to the reference genome.
-Aligned files were filtered to remove secondary and not primary alignments as well as reads with mapping quality below 10:
+Raw fastq files were trimmed to remove adapter contamination and were aligned to the reference genome. 
+Aligned files were filtered to remove secondary and not primary alignments as well as reads with mapping quality below 10.
+Occasionally, the same library was sequenced on multiple sequencing runs. With respect to the [sample sheet](sampleSheet.txt) these are `file_name`s within `library_id` and in these cases, different fastq files from the same
+library can be concatenated prior to the following data processing. 
 
 ```
 cutadapt -f fastq -e 0.1 -q 20 -O 3 -a CTGTCTCTTATACACATCT $fq > /dev/stdout 2> $bname.cutadapt.txt \
@@ -66,7 +65,8 @@ cutadapt -f fastq -e 0.1 -q 20 -O 3 -a CTGTCTCTTATACACATCT $fq > /dev/stdout 2> 
 java -Xmx5g -jar ~/bin/picard.jar MarkDuplicates I=${bname}.hg19.bam O=$bamclean/${bname}.hg19.clean.bam M=$logdir/$bname.md.txt
 ```
 
-Technical replicates were then merged in a single file. The header in the merged bam files edited with [addRGtoSAMHeader.py](https://github.com/dariober/bioinformatics-cafe/blob/f524a45ea0d85b9be7cf24508b32c9488b74ae95/addRGtoSAMHeader.py)
+Technical replicates were then merged in a single file. The header in the merged bam files edited with [addRGtoSAMHeader.py](https://github.com/dariober/bioinformatics-cafe/blob/f524a45ea0d85b9be7cf24508b32c9488b74ae95/addRGtoSAMHeader.py).
+With respect to the [sample sheet](sampleSheet.txt), technical replicates are different `library_id`s within the same `sample_id`.
 
 ```
 java -Xmx1g -jar picard.jar MergeSamFiles VALIDATION_STRINGENCY=SILENT AS=true I=$toMerge1 I=$toMerge2 O=$bam &&
@@ -74,31 +74,52 @@ addRGtoSAMHeader.py -i $bam -o $outbam &&
 samtools index ${bam%.bam}.rg.bam
 ```
 
-### Mapping FAIRE-Seq peaks
+### ATAC-Seq and FAIRE-Seq peak calling
 
-Before peak calling, alignment bam files were first split by chromosome and the alignments mapped as duplicate removed. Finally, bam files were
-converted to bed format. Peak calling was perfomed with F-Seq as follows for each FAIRE-Seq bam file:
-
-```
-bff='crg_100bp_hg19' ## Directory obtained from http://fureylab.web.unc.edu/software/fseq/
-fseq -of bed -t 5 -l 800 -v -b $bff -d $bdir -o $outputdir
-```
-
-Peak files from individual chromosomes were then concateated.
-
-## Processing ATAC-Seq data
-
-Raw reads were trimmed, aligned, filtered and duplicates marked using the same procedure as for FAIRE-Seq. 
-Prior to mapping of open chromatin, reads mapping to chrM were removed and technical replicates merged in a single bam file.
-
-Peaks of read enrichment were mapped using macs2 as follows:
+Peaks of read enrichment were mapped using macs2. For ATAC-Seq libraries, reads mapping to chrM were excluded prior to peak calling:
 
 ```
 samtools view -h -F1024 $bam | grep -v -P '\tchrM\t' | samtools view -b - > $tmpBam
 macs2 callpeak --keep-dup all -t $tmpBam -n ${bname} 
 ```
 
-### Differential chromatin state between entinostat and control cells
+For FAIRE-Seq libraries, macs2 was run with p-value cutoff of 0.0001 (_i.e._ with option `-p 0.0001`) in order to
+increase sensitivity and detect less pronounced peaks typical of FAIRE-Seq libraries.
+
+### G4-ChIP peak calling
+
+Peaks were identified with macs2 with the appropriate input control for each pull-down library:
+
+```
+## HACAT - Control
+macs2 callpeak --keep-dup all \
+    -t $bamdir/rhh_25cyc_BG4_12082015.bam \
+    -c $bamdir/rhh155_25cyc_input_703_503_12082015.bam -n rhh_25cyc_BG4_12082015
+
+macs2 callpeak --keep-dup all \
+    -t $bamdir/rhh175_ChIPwthacat_704_502_entst_26082015.bam \
+    -c $bamdir/rhh178_inputwthacat_703_517_entst_26082015 .bam -n rhh175_ChIPwthacat_704_502_entst_26082015
+
+## HACAT - Entinostat
+macs2 callpeak --keep-dup all \
+    -t $bamdir/rhh_ChIP_entst_17082015.bam \
+    -c $bamdir/rhh176_Input_705_503_entst_17082015.bam -n rhh_ChIP_entst_17082015
+
+macs2 callpeak --keep-dup all \
+    -t $bamdir/rhh_ChIP_entst_26082015.bam \
+    -c $bamdir/rhh177_Input_705_517_entst_26082015.bam -n rhh_ChIP_entst_26082015
+
+## NHEK
+macs2 callpeak --keep-dup all -p 0.0001     \
+    -t HEKnp_Lonza_1472015_BG4.md.bam \
+    -c merged_14_and_15072015_input_heknplonza.md.bam -n HEKnp_Lonza_1472015_BG4.1e4
+    
+macs2 callpeak --keep-dup all -p 0.0001 \
+    -t HEKnp_Lonza_1572015_BG4.md.bam \
+    -c merged_14_and_15072015_input_heknplonza.md.bam -n HEKnp_Lonza_1572015_BG4.1e4
+```
+
+## Differential chromatin state between entinostat and control cells
 
 Differences in ATAC-Seq signal and hence chromatin state between entinostat treated and control cells were mapped by comparing the read counts in the two sets
 of libraries. First, consensus peaks within entinostat and control libraries were defined as those shared between at least two libraries:
@@ -206,7 +227,7 @@ dev.off()
 write.table(detable, "diff.atac-entinostat.txt", row.names= FALSE, col.names= TRUE, sep= '\t', quote= FALSE)
 ```
 
-### Differential chromatin state between HaCaT and NHEK cells
+## Differential chromatin state between HaCaT and NHEK cells
 
 Differences in ATAC signal between HaCaT and NHEK cells were detected following the same approach as above for entinostat vs control.
 First, consensus peak sets were produced for the two cell lines, then a union peak set was generated for read count and testing:
@@ -298,43 +319,7 @@ dev.off()
 write.table(detable, "diff.atac-hek_vs_hacat.txt", row.names= FALSE, col.names= TRUE, sep= '\t', quote= FALSE)
 ```
 
-## Processing G4-ChIP data
-
-Raw reads were trimmed, aligned, filtered and duplicates marked using the same procedure as for FAIRE-Seq. 
-Prior to mapping of open chromatin technical replicates were merged in a single bam file.
-
-Peaks were identified with macs2 with the appropriate input control for each pull-down library:
-
-```
-## HACAT - Control
-macs2 callpeak --keep-dup all \
-    -t $bamdir/rhh_25cyc_BG4_12082015.bam \
-    -c $bamdir/rhh155_25cyc_input_703_503_12082015.bam -n rhh_25cyc_BG4_12082015
-
-macs2 callpeak --keep-dup all \
-    -t $bamdir/rhh175_ChIPwthacat_704_502_entst_26082015.bam \
-    -c $bamdir/rhh178_inputwthacat_703_517_entst_26082015 .bam -n rhh175_ChIPwthacat_704_502_entst_26082015
-
-## HACAT - Entinostat
-macs2 callpeak --keep-dup all \
-    -t $bamdir/rhh_ChIP_entst_17082015.bam \
-    -c $bamdir/rhh176_Input_705_503_entst_17082015.bam -n rhh_ChIP_entst_17082015
-
-macs2 callpeak --keep-dup all \
-    -t $bamdir/rhh_ChIP_entst_26082015.bam \
-    -c $bamdir/rhh177_Input_705_517_entst_26082015.bam -n rhh_ChIP_entst_26082015
-
-## NHEK
-macs2 callpeak --keep-dup all -p 0.0001     \
-    -t HEKnp_Lonza_1472015_BG4.md.bam \
-    -c merged_14_and_15072015_input_heknplonza.md.bam -n HEKnp_Lonza_1472015_BG4.1e4
-    
-macs2 callpeak --keep-dup all -p 0.0001 \
-    -t HEKnp_Lonza_1572015_BG4.md.bam \
-    -c merged_14_and_15072015_input_heknplonza.md.bam -n HEKnp_Lonza_1572015_BG4.1e4
-```
-
-### Differential BG4 binding between entinostat and control cells
+## Differential BG4 binding between entinostat and control cells
 
 Differences in BG4 binding between entinostat treated and control cells have been tested for the union of intervals between the four
 G4-ChIP libraries. The union set of intervals and read count in each interval has been produced as follows:
@@ -411,7 +396,7 @@ dev.off()
 write.table(detable, "expr_diff.entinostat.txt", row.names= FALSE, col.names= TRUE, sep= '\t', quote= FALSE)
 ```
 
-### Differential BG4 binding between HaCaT and NHEK cells
+## Differential BG4 binding between HaCaT and NHEK cells
 
 Union set of testable site was produced merging the four libraries from HaCaT and NHEK cells:
 
