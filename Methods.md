@@ -1,3 +1,27 @@
+Table of Contents
+=================
+
+  * [Data analysis](#data-analysis)
+    * [Software tools and public data files](#software-tools-and-public-data-files)
+    * [Alignment and peak calling of FAIRE-Seq, ATAC-Seq, BG4-ChIP data](#alignment-and-peak-calling-of-faire-seq-atac-seq-bg4-chip-data)
+      * [ATAC-Seq and FAIRE-Seq peak calling](#atac-seq-and-faire-seq-peak-calling)
+      * [G4-ChIP peak calling](#g4-chip-peak-calling)
+    * [Differential chromatin state between entinostat and control cells](#differential-chromatin-state-between-entinostat-and-control-cells)
+    * [Differential chromatin state between HaCaT and NHEK cells](#differential-chromatin-state-between-hacat-and-nhek-cells)
+    * [Differential BG4 binding between entinostat and control cells](#differential-bg4-binding-between-entinostat-and-control-cells)
+    * [Differential BG4 binding between HaCaT and NHEK cells](#differential-bg4-binding-between-hacat-and-nhek-cells)
+    * [Processing RNA-Seq data](#processing-rna-seq-data)
+      * [Differential gene expression: Effect of entinostat in hacat cells](#differential-gene-expression-effect-of-entinostat-in-hacat-cells)
+      * [Differential gene expression between HaCaT and NHEK](#differential-gene-expression-between-hacat-and-nhek)
+    * [Gene expression in relation to ATAC and G4-ChIP peaks in promoters](#gene-expression-in-relation-to-atac-and-g4-chip-peaks-in-promoters)
+    * [Correlation in read density between replicates](#correlation-in-read-density-between-replicates)
+    * [Visualization in IGV](#visualization-in-igv)
+
+<!---
+TOC created with ./gh-md-toc from https://github.com/ekalinin/github-markdown-toc as
+gh-md-toc ~/git_sblab/dna-secondary-struct-chrom-lands/trunk/Methods.md
+-->
+
 # Data analysis
 
 For ease of presentation, paths to programs and to data files are omitted in the following scripts.
@@ -175,7 +199,7 @@ done
 
 Testing for differential chromatin state:
 
-```
+```R
 R
 library(data.table)
 library(edgeR)
@@ -264,7 +288,7 @@ rm union_atac.merge.bed
 
 Differential chromatin state:
 
-```
+```R
 R
 library(data.table)
 library(edgeR)
@@ -425,7 +449,7 @@ rm union_bg4.merge.bed
 
 Testing for differential binding:
 
-```
+```R
 R
 library(data.table)
 library(edgeR)
@@ -492,7 +516,7 @@ is header, gene names are in the first column.
 
 ### Differential gene expression: Effect of entinostat in hacat cells
 
-```
+```R
 R
 library(data.table)
 library(edgeR)
@@ -537,7 +561,7 @@ write.table(detable, "expr_diff.entinostat.rnaseq.txt", row.names= FALSE, col.na
 
 The following R function was used to normalize raw read counts in genes to transcripts per million (TPM):
 
-```
+```R
 tpm<- function(counts, gene_length){
     stopifnot(length(counts) == length(gene_length))
     stopifnot(is.numeric(counts))
@@ -554,7 +578,7 @@ Gene lengths were extracted from annotation GTF file `genes.gtf` using custom sc
 
 Differential gene expression between cell lines was tested with the same procedure as for the difference between entinostat and control in HaCaT:
 
-```
+```R
 R
 library(data.table)
 library(edgeR)
@@ -634,8 +658,11 @@ cat tss.minus.bed tss.plus.bed \
 | sed 's/_/\t/' \
 | awk -v OFS="\t" '{print $1, $3, $4, $2}' \
 | sortBed > hg19.gene_name.promoters.bed
+```
 
-## Get only genes with one merged promoter
+Get only genes with one merged promoter
+
+```R
 R
 library(data.table)
 bed<- fread('hg19.gene_name.promoters.bed')
@@ -670,9 +697,9 @@ rm hg19.gene_name.promoters.bed
 ## Correlation in read density between replicates
 
 The consistency between replicates was assessed by comparing the tag density in windows of 1000 bp.
+To reduce the computaional burden only chr19 was analyzed.
 
 ```
-# Analyze only chr19:
 grep 'chr19' genome.bed \
 | windowMaker -b - -w 1000 > chr19.windows.bed 
 
@@ -700,7 +727,11 @@ done
 ls *.tmp.sh | xargs -P 0 -n 1 bash && rm *tmp.sh
 
 tableCat.py -i *.cnt.bed -r '\.cnt\.bed' > windows.cnt.cat.bed
+```
 
+Draw plots
+
+```R
 R
 library(data.table)
 library(ggplot2)
