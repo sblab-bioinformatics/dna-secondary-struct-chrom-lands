@@ -1,4 +1,5 @@
 # G-quadruplex structures mark human regulatory chromatin
 
-Repository for the Method section of data analysis. See [Methods](Methods.md).
+Repository for the data analysis section accompanying the article *G-quadruplex structures mark human regulatory chromatin*
+(Hansel-Hertsch *et al.* Nature Genetics, *under review*). See [Methods](Methods.md).
 

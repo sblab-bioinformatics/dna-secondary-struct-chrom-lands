@@ -56,9 +56,7 @@ were downloaded from [Illumina iGenomes](https://support.illumina.com/sequencing
 [data.table](https://cran.r-project.org/web/packages/data.table/index.html),
 [ggplot2](http://ggplot2.org/),
 
-* Convenience custom scripts: [mergePeaks.sh](https://github.com/dariober/bioinformatics-cafe/blob/master/mergePeaks.sh),
-[sortBedAsBam.py](https://github.com/dariober/bioinformatics-cafe/blob/master/sortBedAsBam.py), [tableCat.py](https://github.com/dariober/bioinformatics-cafe/tree/master/tableCat)
-
+* Convenience custom scripts used here are in the [utils](https://github.com/sblab-bioinformatics/dna-secondary-struct-chrom-lands/) directory.
 
 * List of regions excluded from peak calling:
 [hg19.wgEncodeDukeMapabilityRegionsExcludable.bed.gz](http://hgdownload.cse.ucsc.edu/goldenpath/hg19/encodeDCC/wgEncodeMapability/wgEncodeDukeMapabilityRegionsExcludable.bed.gz).
@@ -89,7 +87,7 @@ cutadapt -f fastq -e 0.1 -q 20 -O 3 -a CTGTCTCTTATACACATCT $fq > /dev/stdout 2> 
 java -Xmx5g -jar ~/bin/picard.jar MarkDuplicates I=${bname}.hg19.bam O=$bamclean/${bname}.hg19.clean.bam M=$logdir/$bname.md.txt
 ```
 
-Technical replicates were then merged in a single file. The header in the merged bam files edited with [addRGtoSAMHeader.py](https://github.com/dariober/bioinformatics-cafe/blob/f524a45ea0d85b9be7cf24508b32c9488b74ae95/addRGtoSAMHeader.py).
+Technical replicates were then merged in a single file. The header in the merged bam files edited with [addRGtoSAMHeader.py](utils/addRGtoSAMHeader.py).
 With respect to the [sample sheet](sampleSheet.txt), technical replicates are different `library_id`s within the same `sample_id`.
 
 ```
@@ -572,7 +570,7 @@ tpm<- function(counts, gene_length){
     return(xtpm)
 }
 ```
-Gene lengths were extracted from annotation GTF file `genes.gtf` using custom script [geneLengthFromGTF.py](https://github.com/dariober/bioinformatics-cafe/blob/master/geneLengthFromGTF.py).
+Gene lengths were extracted from annotation GTF file `genes.gtf` using custom script [geneLengthFromGTF.py](utils/geneLengthFromGTF.py).
 
 ### Differential gene expression between HaCaT and NHEK
 
